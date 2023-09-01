@@ -17,6 +17,10 @@
 #   Copyright © 2014-2023 The University of Tromsø & the Norwegian Sámi Parliament
 #   http://giellatekno.uit.no & http://divvun.no
 #
+#   ADDENDUM: Pierre Beauguitte, National Library of Norway, 2023
+#   Change `langs is None` with `not langs` in Classifier.get_langs
+#   Keep only methods used for classification
+#
 """An implementation of the ``N-Gram-Based Text Categorization'' algorithm.
 
 Original article:
@@ -31,15 +35,13 @@ http://odur.let.rug.nl/~vannoord/TextCat/
 """
 
 
-import argparse
 import codecs
 import glob
-import gzip
 import os
 import re
 import sys
 
-from corpustools import argparse_version, util
+from gielladetect import util
 
 here = os.path.dirname(__file__)
 
@@ -161,9 +163,6 @@ class NGramModel:
             for gram, rank in unknown.ngrams.items()
             if gram in self.ngrams
         )
-        # util.print_frame(debug=missing_count)
-        # util.print_frame(debug=d_missing)
-        # util.print_frame(debug=d_found)
 
         return d_missing + d_found
 
@@ -310,7 +309,7 @@ class Classifier:
         Returns:
             (set[str]): The set of languages that should be considered
         """
-        if langs is None:
+        if not langs:
             return self.langs
         else:
             langs = set(langs)
@@ -371,176 +370,3 @@ class Classifier:
 
     def classify(self, text, langs=[], verbose=False):
         return self.classify_full(text, langs, verbose)[0][0]
-
-
-class FolderTrainer:
-    """Train the language guesser from a directory."""
-
-    def __init__(
-        self, folder, exts=[".txt", ".txt.gz"], Model=CharModel, verbose=False
-    ):
-        self.models = {}
-
-        for ext in exts:
-            files = glob.glob(os.path.normcase(os.path.join(folder, "*" + ext)))
-            for fname in files:
-                if verbose:
-                    msg = f"Processing {fname}"
-                    if os.path.getsize(fname) > 5000000:
-                        msg += " (this may take a while)"
-                    util.note(msg)
-                    sys.stderr.flush()
-                lang = util.basename_noext(fname, ext)
-                self.models[lang] = Model(lang).of_text_file(self.open_corpus(fname))
-
-        if not self.models:
-            raise Exception(
-                "No suitable files found matching {}/*.{}{}{}!".format(
-                    folder, "{", ",".join(exts), "}"
-                )
-            )
-
-    def open_corpus(self, fname):
-        if fname.endswith(".gz"):
-            return gzip.open(fname, "rb")
-        else:
-            return codecs.open(fname, "r", encoding="utf8")
-
-    def save(self, folder, ext=".lm", verbose=False):
-        for lang, model in self.models.items():
-            fname = os.path.join(folder, lang + ext)
-            model.to_model_file(codecs.open(fname, "w", encoding="utf8"))
-        if verbose and self.models:
-            util.note("Wrote {{{}}}{}".format(",".join(list(self.models.keys())), ext))
-
-
-class FileTrainer:
-    """Train the language guesser from a file."""
-
-    def __init__(self, fil, Model=CharModel, verbose=False):
-        self.model = Model().of_text_file(fil)
-
-    def save(self, fil, verbose=False):
-        self.model.to_model_file(fil)
-
-
-def proc(args):
-    langs = [l for l in args.langs.split(",") if l != ""]
-    c = Classifier(folder=args.model_dir, langs=langs)
-    if args.u is not None:
-        c.DROP_RATIO = args.u
-    if args.verbose:
-        util.note(f"Drop ratio: {c.DROP_RATIO}")
-    if args.s:
-        for line in sys.stdin:
-            print(c.classify(line.decode("utf-8"), verbose=args.verbose))
-    else:
-        print(c.classify(sys.stdin.read(), verbose=args.verbose))
-
-
-def file_comp(args):
-    if args.mtype == "lm":
-        FileTrainer(sys.stdin, Model=CharModel, verbose=args.verbose).save(
-            sys.stdout, verbose=args.verbose
-        )
-    elif args.mtype == "wm":
-        FileTrainer(sys.stdin, Model=WordModel, verbose=args.verbose).save(
-            sys.stdout, verbose=args.verbose
-        )
-    else:
-        raise util.ArgumentError("This shouldn't happen; mtype should be lm or wm")
-
-
-def folder_comp(args):
-    # Check that output dir exists *first* so we don't waste time on
-    # training and only then crash :-)
-    for d in [args.corp_dir, args.model_dir]:
-        if not os.path.isdir(d):
-            raise util.ArgumentError(f"{d} is not a directory!")
-    FolderTrainer(args.corp_dir, Model=CharModel, verbose=args.verbose).save(
-        args.model_dir, ext=".lm", verbose=args.verbose
-    )
-    FolderTrainer(args.corp_dir, Model=WordModel, verbose=args.verbose).save(
-        args.model_dir, ext=".wm", verbose=args.verbose
-    )
-
-
-def parse_options():
-    parser = argparse.ArgumentParser(
-        parents=[argparse_version.parser],
-        description="Create or use n-gram models for language classification.",
-    )
-
-    parser.add_argument(
-        "-V", "--verbose", help="Print some info to stderr", action="store_true"
-    )
-
-    subparsers = parser.add_subparsers(
-        help="(try e.g. 'proc -h' for help with that subcommand)"
-    )
-
-    proc_parser = subparsers.add_parser("proc", help="Language classification")
-    proc_parser.add_argument(
-        "model_dir",
-        help="Language model directory. Defaults to the "
-        "directory {}.".format(os.path.join(here, "lm/")),
-        nargs="?",
-    )
-    proc_parser.add_argument(
-        "-u",
-        help="Drop ratio (defaults to 1.1) -- when the "
-        "character model of a language is this much "
-        "worse than the best guess, we don't include "
-        "it in the word model comparison.",
-        type=float,
-    )
-    proc_parser.add_argument(
-        "-s",
-        help="Classify on a line-by-line basis "
-        "(rather than the whole input as one text).",
-        action="store_true",
-    )
-    proc_parser.add_argument(
-        "-l",
-        "--langs",
-        help="Comma-separated list of languages to "
-        "classify between (by default uses all "
-        "languages in model_dir).",
-        type=str,
-        default="",
-    )
-    proc_parser.set_defaults(func=proc)
-
-    complm_parser = subparsers.add_parser(
-        "complm", help="Compile character model from stdin to stdout."
-    )
-    complm_parser.set_defaults(func=file_comp)
-    complm_parser.set_defaults(mtype="lm")
-
-    compwm_parser = subparsers.add_parser(
-        "compwm", help="Compile word model from stdin to stdout."
-    )
-    compwm_parser.set_defaults(func=file_comp)
-    compwm_parser.set_defaults(mtype="wm")
-
-    compdir_parser = subparsers.add_parser(
-        "compdir", help="Compile language from directory."
-    )
-    compdir_parser.add_argument(
-        "corp_dir", help="Directory to read corpora (*.txt) from."
-    )
-    compdir_parser.add_argument(
-        "model_dir", help="Directory to write LM and WM files in."
-    )
-    compdir_parser.set_defaults(func=folder_comp)
-
-    return parser.parse_args()
-
-
-def main():
-    args = parse_options()
-    args.func(args)
-
-
-if __name__ == "__main__":
-    main()
