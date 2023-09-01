@@ -39,7 +39,6 @@ import codecs
 import glob
 import os
 import re
-import sys
 
 from gielladetect import util
 
@@ -56,11 +55,10 @@ def ensure_unicode(text):
     Helper for functions that should be able to operate on either utf-8
     encoded bytes or decoded unicode objects
     """
-    if type(text) == bytes:
+    if isinstance(text, bytes):
         return text.decode("utf-8")
-    else:
-        assert type(text) == str
-        return text
+    assert isinstance(text, str)
+    return text
 
 
 class NGramModel:
@@ -70,7 +68,7 @@ class NGramModel:
     NB_NGRAMS = 400
     MISSING_VALUE = 400
 
-    def __init__(self, arg={}, lang="input"):
+    def __init__(self, lang="input"):
         self.lang = lang  # for debugging
         self.unicode_warned = 0
 
@@ -98,14 +96,14 @@ class NGramModel:
             parts = line.split()
             if len(parts) != 2:
                 raise ValueError(
-                    "%s:%d invalid line, was split to %s" % (fname, nl + 1, parts)
+                    f"{fname}:{nl+1} invalid line, was split to {parts}"
                 )
             try:
                 g = parts[gram_column]
                 f = int(parts[freq_column])
                 freq[g] = f
             except ValueError as e:
-                raise ValueError("%s: %d %s" % (fname, nl + 1, e))
+                raise ValueError(f"{fname}: {nl+1} {e}") from e
         return freq
 
     def tokenise(self, text):
@@ -122,9 +120,6 @@ class NGramModel:
         """This should update freq and return it."""
         raise NotImplementedError("You have to subclass and override freq_of_text")
 
-    def to_model_file(self, fil, fname):
-        raise NotImplementedError("You have to subclass and override to_model_file")
-
     def freq_of_text_file(self, fil):
         freq = {}
         for nl, strline in enumerate(fil.readlines()):
@@ -133,8 +128,8 @@ class NGramModel:
             except UnicodeDecodeError as e:
                 if self.unicode_warned == 0:
                     util.note(
-                        "WARNING: Line {} gave {}, skipping ... "
-                        "(not warning again)".format(nl, e)
+                        f"WARNING: Line {nl} gave {e}, skipping ... "
+                        "(not warning again)"
                     )
                 self.unicode_warned += 1
                 continue
@@ -172,16 +167,6 @@ class CharModel(NGramModel):
         self.finish(self.freq_of_model_file(fil, fname, gram_column=0, freq_column=1))
         return self
 
-    def to_model_file(self, fil):
-        lines = "".join(
-            [
-                "%s\t%d\n" % (g, f)
-                for g, f in util.sort_by_value(self.freq, reverse=True)
-                if g != ""
-            ]
-        )
-        fil.write(lines)
-
     def freq_of_text(self, text, freq):
         words = self.tokenise(text)
         for word in words:
@@ -189,7 +174,7 @@ class CharModel(NGramModel):
             size = len(_word_)
             for i in range(size):
                 for s in (1, 2, 3, 4):
-                    sub = _word_[i : i + s]
+                    sub = _word_[i: i + s]
                     freq[sub] = freq.get(sub, 0) + 1
                     if i + s >= size:
                         break
@@ -202,16 +187,6 @@ class WordModel(NGramModel):
     def of_model_file(self, fil, fname):
         self.finish(self.freq_of_model_file(fil, fname, gram_column=1, freq_column=0))
         return self
-
-    def to_model_file(self, fil):
-        lines = "".join(
-            [
-                "%d\t%s\n" % (f, g)
-                for g, f in util.sort_by_value(self.freq, reverse=True)
-                if g != ""
-            ]
-        )
-        fil.write(lines)
 
     def freq_of_text(self, text, freq):
         words = self.tokenise(text)
@@ -239,13 +214,12 @@ class WordModel(NGramModel):
         """
         if normaliser <= 0:
             return normaliser
-        else:
-            unknown_freq = self.freq_of_text(unknown_text, {})
-            return sum(
-                self.invrank[word] ** 2 * unknown_freq[word] * 100 / normaliser
-                for word in unknown_freq.keys()
-                if word in self.ngrams
-            )
+        unknown_freq = self.freq_of_text(unknown_text, {})
+        return sum(
+            self.invrank[word] ** 2 * freq * 100 / normaliser
+            for word, freq in unknown_freq.items()
+            if word in self.ngrams
+        )
 
 
 class Classifier:
@@ -253,7 +227,7 @@ class Classifier:
 
     DROP_RATIO = 1.10
 
-    def __init__(self, folder=None, langs=[], verbose=False):
+    def __init__(self, folder=None, langs=None, verbose=False):
         if folder is None:
             folder = os.path.join(here, "lm")
         self.cmodels = {}
@@ -296,9 +270,8 @@ class Classifier:
 
         if not self.cmodels:
             raise ValueError("No character models created!")
-        else:
-            self.langs = set(self.cmodels.keys())
-            self.langs_warned = set()
+        self.langs = set(self.cmodels.keys())
+        self.langs_warned = set()
 
     def get_langs(self, langs=None):
         """Get the set of wanted languages.
@@ -311,69 +284,65 @@ class Classifier:
         """
         if not langs:
             return self.langs
-        else:
-            langs = set(langs)
-            active_langs = self.langs & langs
-            if len(langs) != len(active_langs):
-                missing = langs - active_langs - self.langs_warned
-                if missing:
-                    # only warn once per lang
-                    self.langs_warned.update(missing)
-                    util.note(
-                        "WARNING: No language model for {}".format("/".join(missing))
-                    )
-            return active_langs
+        langs = set(langs)
+        active_langs = self.langs & langs
+        if len(langs) != len(active_langs):
+            missing = langs - active_langs - self.langs_warned
+            if missing:
+                # only warn once per lang
+                self.langs_warned.update(missing)
+                util.note(
+                    f"WARNING: No language model for {'/'.join(missing)}"
+                )
+        return active_langs
 
-    def classify_full(self, intext, langs=[], verbose=False):
+    def classify_full(self, intext, langs=None, verbose=False):
         active_langs = self.get_langs(langs)
 
         text = ensure_unicode(intext)
         ingram = CharModel().of_text(text)
 
         cscored = {
-            l: model.compare(ingram)
-            for l, model in self.cmodels.items()
-            if l in active_langs
+            lang: model.compare(ingram)
+            for lang, model in self.cmodels.items()
+            if lang in active_langs
         }
         cranked = util.sort_by_value(cscored)
         cbest = cranked[0]
-        cfiltered = {l: d for l, d in cranked if d <= cbest[1] * self.DROP_RATIO}
+        cfiltered = {lang: d for lang, d in cranked if d <= cbest[1] * self.DROP_RATIO}
 
         if len(cfiltered) <= 1:
             if verbose:
                 util.note(f"lm gave: {cfiltered} as only result for input: {text}")
             return list(cfiltered.items())
-        else:
-            # Along with compare_tc, implements text_cat.pl line
-            # 442 and on:
-            wscored = {
-                l: model.compare_tc(text, cscored[l])
-                for l, model in self.wmodels.items()
-                if l in cfiltered
-            }
-            cwcombined = {l: (cscored[l] - wscore) for l, wscore in wscored.items()}
-            cwranked = util.sort_by_value(cwcombined)
-            if verbose:
-                if cranked[: len(cwranked)] == cwranked:
-                    util.note(
-                        "lm gave: {}\t\twm gave no change\t\tfor"
-                        "input: {}".format(pretty_tbl(cranked), text)
-                    )
-                else:
-                    util.note(
-                        "lm gave: {}\t\twm-weighted to: "
-                        "{}\t\tfor input: {}".format(
-                            pretty_tbl(cranked), pretty_tbl(cwranked), text
-                        )
-                    )
-            return cwranked
+        # Along with compare_tc, implements text_cat.pl line
+        # 442 and on:
+        wscored = {
+            lang: model.compare_tc(text, cscored[lang])
+            for lang, model in self.wmodels.items()
+            if lang in cfiltered
+        }
+        cwcombined = {lang: (cscored[lang] - wscore) for lang, wscore in wscored.items()}
+        cwranked = util.sort_by_value(cwcombined)
+        if verbose:
+            if cranked[: len(cwranked)] == cwranked:
+                util.note(
+                    f"lm gave: {pretty_tbl(cranked)}\t\twm gave no change\t\tfor"
+                    f"input: {text}"
+                )
+            else:
+                util.note(
+                    f"lm gave: {pretty_tbl(cranked)}\t\twm-weighted to: "
+                    f"{pretty_tbl(cwranked)}\t\tfor input: {text}"
+                )
+        return cwranked
 
-    def classify(self, text, langs=[], verbose=False):
+    def classify(self, text, langs=None, verbose=False):
         return self.classify_full(text, langs, verbose)[0][0]
 
 
 _classifier = Classifier()
 
 
-def detect(text, langs=[]):
+def detect(text, langs=None):
     return _classifier.classify(text, langs=langs)
