@@ -370,3 +370,10 @@ class Classifier:
 
     def classify(self, text, langs=[], verbose=False):
         return self.classify_full(text, langs, verbose)[0][0]
+
+
+_classifier = Classifier()
+
+
+def detect(text, langs=[]):
+    return _classifier.classify(text, langs=langs)
