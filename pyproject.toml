@@ -1,3 +1,22 @@
 [build-system]
 requires = ["setuptools"]
 build-backend = "setuptools.build_meta"
+
+[project]
+name = "gielladetect"
+description = "Language detection module based on the GiellaLT models, specifically aimed at minority and indigenous languages"
+version = "1.0.0"
+readme = "README.md"
+license = {text="GPLv3"}
+classifiers = [
+    "License :: OSI Approved :: GNU General Public License v3 (GPLv3)"
+]
+
+[project.urls]
+repository = "https://github.com/NationalLibraryOfNorway/gielladetect"
+
+[tool.setuptools]
+packages = ["gielladetect"]
+
+[tool.setuptools.package-data]
+"gielladetect.lm" = ["*.lm", "*.wm"]
