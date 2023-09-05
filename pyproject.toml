@@ -15,8 +15,8 @@ classifiers = [
 [project.urls]
 repository = "https://github.com/NationalLibraryOfNorway/gielladetect"
 
-[tool.setuptools]
-packages = ["gielladetect"]
+[tool.setuptools.packages.find]
+where = ["."]
 
 [tool.setuptools.package-data]
 "gielladetect.lm" = ["*.lm", "*.wm"]
