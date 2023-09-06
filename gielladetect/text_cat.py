@@ -35,6 +35,7 @@ http://odur.let.rug.nl/~vannoord/TextCat/
 """
 
 
+from typing import Optional, Self, TextIO, Tuple
 import codecs
 import glob
 import os
@@ -45,11 +46,11 @@ from gielladetect import util
 here = os.path.dirname(__file__)
 
 
-def pretty_tbl(table):
+def pretty_tbl(table: list[Tuple[str, float]]) -> str:
     return ", ".join(f"{k}:{v}" for k, v in table)
 
 
-def ensure_unicode(text):
+def ensure_unicode(text: str) -> str:
     """Make sure text is unicode
 
     Helper for functions that should be able to operate on either utf-8
@@ -68,27 +69,28 @@ class NGramModel:
     NB_NGRAMS = 400
     MISSING_VALUE = 400
 
-    def __init__(self, lang="input"):
+    def __init__(self, lang: str = "input") -> None:
         self.lang = lang  # for debugging
         self.unicode_warned = 0
 
-    def of_text(self, text):
+    def of_text(self, text: str) -> Self:
         self.finish(self.freq_of_text(ensure_unicode(text), {}))
         return self
 
-    def of_freq(self, freq):
+    def of_freq(self, freq: dict[str, float]) -> Self:
         self.finish(freq)
         return self
 
-    def of_text_file(self, fil):
+    def of_text_file(self, fil: TextIO) -> Self:
         self.finish(self.freq_of_text_file(fil))
         return self
 
-    def of_model_file(self, fil, fname):
+    def of_model_file(self, fil: TextIO, fname: str) -> Self:
         raise NotImplementedError("You have to subclass and override of_model_file")
 
-    def freq_of_model_file(self, fil, fname, gram_column, freq_column):
-        freq = {}
+    def freq_of_model_file(self, fil: TextIO, fname: str,
+                           gram_column: int, freq_column: int) -> dict[str, float]:
+        freq: dict[str, float] = {}
         for nl, strline in enumerate(fil.readlines()):
             line = strline.strip()
             if line == "":
@@ -106,7 +108,7 @@ class NGramModel:
                 raise ValueError(f"{fname}: {nl+1} {e}") from e
         return freq
 
-    def tokenise(self, text):
+    def tokenise(self, text: str) -> list[str]:
         """Tokenise the text
 
         Since we use split() when loading the model file, we also use split()
@@ -116,12 +118,12 @@ class NGramModel:
         tokens = (re.split(self.SPLITCHARS, t) for t in text.split())
         return sum(tokens, [])  # flatten
 
-    def freq_of_text(self, text, freq):
+    def freq_of_text(self, text: str, freq: dict[str, float]) -> dict[str, float]:
         """This should update freq and return it."""
         raise NotImplementedError("You have to subclass and override freq_of_text")
 
-    def freq_of_text_file(self, fil):
-        freq = {}
+    def freq_of_text_file(self, fil: TextIO) -> dict[str, float]:
+        freq: dict[str, float] = {}
         for nl, strline in enumerate(fil.readlines()):
             try:
                 line = strline
@@ -138,7 +140,7 @@ class NGramModel:
             util.note(f"Saw {self.unicode_warned} UnicodeDecodeErrors")
         return freq
 
-    def finish(self, freq):
+    def finish(self, freq: dict[str, float]) -> None:
         self.ngrams = {
             gram: rank
             for rank, (gram, freq) in enumerate(
@@ -150,7 +152,7 @@ class NGramModel:
         self.freq = {gram: freq[gram] for gram in self.ngrams}
         self.ngramskeyset = set(self.ngrams.keys())
 
-    def compare(self, unknown):
+    def compare(self, unknown: Self) -> float:
         missing_count = len(unknown.ngramskeyset - self.ngramskeyset)
         d_missing = self.MISSING_VALUE * missing_count
         d_found = sum(
@@ -163,11 +165,11 @@ class NGramModel:
 
 
 class CharModel(NGramModel):
-    def of_model_file(self, fil, fname):
+    def of_model_file(self, fil: TextIO, fname: str) -> Self:
         self.finish(self.freq_of_model_file(fil, fname, gram_column=0, freq_column=1))
         return self
 
-    def freq_of_text(self, text, freq):
+    def freq_of_text(self, text: str, freq: dict[str, float]) -> dict[str, float]:
         words = self.tokenise(text)
         for word in words:
             _word_ = "_" + word + "_"
@@ -184,17 +186,17 @@ class CharModel(NGramModel):
 class WordModel(NGramModel):
     NB_NGRAMS = 30000
 
-    def of_model_file(self, fil, fname):
+    def of_model_file(self, fil: TextIO, fname: str) -> Self:
         self.finish(self.freq_of_model_file(fil, fname, gram_column=1, freq_column=0))
         return self
 
-    def freq_of_text(self, text, freq):
+    def freq_of_text(self, text: str, freq: dict[str, float]) -> dict[str, float]:
         words = self.tokenise(text)
         for word in words:
             freq[word] = freq.get(word, 0) + 1
         return freq
 
-    def finish(self, freq):
+    def finish(self, freq: dict[str, float]) -> None:
         super().finish(freq)
         # See text_cat.pl line 642ff; we invert and normalise the
         # ranking to make it possible to use compare_tc where one wm
@@ -207,7 +209,7 @@ class WordModel(NGramModel):
             gram: ((n_words - rank) / normaliser) for gram, rank in self.ngrams.items()
         }
 
-    def compare_tc(self, unknown_text, normaliser):
+    def compare_tc(self, unknown_text: str, normaliser: float) -> float:
         """Implements line 442 of text_cat.pl
 
         `normaliser` is results[language] from CharModel
@@ -227,7 +229,8 @@ class Classifier:
 
     DROP_RATIO = 1.10
 
-    def __init__(self, folder=None, langs=None, verbose=False):
+    def __init__(self, folder: Optional[str] = None, langs: Optional[list[str]] = None,
+                 verbose: bool = False) -> None:
         if folder is None:
             folder = os.path.join(here, "lm")
         self.cmodels = {}
@@ -271,9 +274,9 @@ class Classifier:
         if not self.cmodels:
             raise ValueError("No character models created!")
         self.langs = set(self.cmodels.keys())
-        self.langs_warned = set()
+        self.langs_warned: set[str] = set()
 
-    def get_langs(self, langs=None):
+    def get_langs(self, langs: Optional[list[str]] = None) -> set[str]:
         """Get the set of wanted languages.
 
         Args:
@@ -284,10 +287,10 @@ class Classifier:
         """
         if not langs:
             return self.langs
-        langs = set(langs)
-        active_langs = self.langs & langs
-        if len(langs) != len(active_langs):
-            missing = langs - active_langs - self.langs_warned
+        langs_set = set(langs)
+        active_langs = self.langs & langs_set
+        if len(langs_set) != len(active_langs):
+            missing = langs_set - active_langs - self.langs_warned
             if missing:
                 # only warn once per lang
                 self.langs_warned.update(missing)
@@ -296,7 +299,8 @@ class Classifier:
                 )
         return active_langs
 
-    def classify_full(self, intext, langs=None, verbose=False):
+    def classify_full(self, intext: str, langs: Optional[list[str]] = None,
+                      verbose: bool = False) -> list[Tuple[str, float]]:
         active_langs = self.get_langs(langs)
 
         text = ensure_unicode(intext)
@@ -337,12 +341,12 @@ class Classifier:
                 )
         return cwranked
 
-    def classify(self, text, langs=None, verbose=False):
+    def classify(self, text: str, langs: Optional[list[str]] = None, verbose: bool = False) -> str:
         return self.classify_full(text, langs, verbose)[0][0]
 
 
 _classifier = Classifier()
 
 
-def detect(text, langs=None):
+def detect(text: str, langs: Optional[list[str]] = None) -> str:
     return _classifier.classify(text, langs=langs)

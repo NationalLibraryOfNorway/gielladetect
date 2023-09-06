@@ -28,3 +28,6 @@ disable = "missing-function-docstring,missing-module-docstring,missing-class-doc
 max-line-length = 100
 exclude = ["__pycache__", "venv", "build"]
 per-file-ignores = ["gielladetect/__init__.py:F401"]
+
+[tool.mypy]
+strict = "True"

@@ -21,12 +21,13 @@
 """Utility functions and classes used by other modules in CorpusTools."""
 
 
+from typing import Tuple
 import operator
 import os
 import sys
 
 
-def basename_noext(fname, ext):
+def basename_noext(fname: str, ext: str) -> str:
     """Get the basename without the extension.
 
     Args:
@@ -39,7 +40,7 @@ def basename_noext(fname, ext):
     return os.path.basename(fname)[: -len(ext)]
 
 
-def sort_by_value(table, reverse=False):
+def sort_by_value(table: dict[str, float], reverse: bool = False) -> list[Tuple[str, float]]:
     """Sort the table by value.
 
     Args:
@@ -52,7 +53,7 @@ def sort_by_value(table, reverse=False):
     return sorted(table.items(), key=operator.itemgetter(1), reverse=reverse)
 
 
-def note(msg):
+def note(msg: str) -> None:
     """Print msg to stderr.
 
     Args:
