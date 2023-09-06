@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "gielladetect"
 description = "Language detection module based on the GiellaLT models, specifically aimed at minority and indigenous languages"
-version = "1.0.0"
+version = "1.0.12"
 readme = "README.md"
 license = {text="GPLv3"}
 classifiers = [
@@ -20,3 +20,11 @@ where = ["."]
 
 [tool.setuptools.package-data]
 "gielladetect.lm" = ["*.lm", "*.wm"]
+
+[tool.pylint.'MESSAGES CONTROL']
+disable = "missing-function-docstring,missing-module-docstring,missing-class-docstring,invalid-name,attribute-defined-outside-init"
+
+[tool.flake8]
+max-line-length = 100
+exclude = ["__pycache__", "venv", "build"]
+per-file-ignores = ["gielladetect/__init__.py:F401"]

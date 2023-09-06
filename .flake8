@@ -1,4 +1,0 @@
-[flake8]
-max-line-length = 100
-exclude = __pycache__, venv, build
-per-file-ignores = gielladetect/__init__.py:F401
