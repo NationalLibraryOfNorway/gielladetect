@@ -42,6 +42,7 @@ import codecs
 import glob
 import os
 import re
+import itertools
 
 from gielladetect import util
 
