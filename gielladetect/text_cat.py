@@ -20,6 +20,8 @@
 #   ADDENDUM: Pierre Beauguitte, National Library of Norway, 2023
 #   Change `langs is None` with `not langs` in Classifier.get_langs
 #   Keep only methods used for classification
+#   ADDENDUM: Magnus Breder Birkenes, National Library of Norway, 2023
+#   Updated tokenise() with a new flatten function, using itertools chain - much faster
 #
 """An implementation of the ``N-Gram-Based Text Categorization'' algorithm.
 
@@ -40,6 +42,7 @@ import codecs
 import glob
 import os
 import re
+import itertools
 
 from gielladetect import util
 
@@ -116,7 +119,7 @@ class NGramModel:
         marks) that might not all be in SPLITCHARS
         """
         tokens = (re.split(self.SPLITCHARS, t) for t in text.split())
-        return sum(tokens, [])  # flatten
+        return list(itertools.chain.from_iterable(tokens))
 
     def freq_of_text(self, text: str, freq: dict[str, float]) -> dict[str, float]:
         """This should update freq and return it."""
