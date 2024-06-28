@@ -36,8 +36,8 @@ Original Perl implementation and article available from
 http://odur.let.rug.nl/~vannoord/TextCat/
 """
 
-
-from typing import Optional, Self, TextIO, Tuple
+from typing_extensions import Optional, Self, TextIO, Tuple
+#from typing import Optional, Self, TextIO, Tuple
 import codecs
 import glob
 import os

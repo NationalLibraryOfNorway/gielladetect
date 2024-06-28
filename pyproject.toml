@@ -11,6 +11,9 @@ license = {text="GPLv3"}
 classifiers = [
     "License :: OSI Approved :: GNU General Public License v3 (GPLv3)"
 ]
+dependencies = [
+  'typing_extensions >= 4.12'
+]
 
 [project.urls]
 repository = "https://github.com/NationalLibraryOfNorway/gielladetect"
