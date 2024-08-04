@@ -41,11 +41,10 @@ import glob
 import os
 import re
 import itertools
-
-from gielladetect import util
-
 from typing import Optional, TextIO, Tuple
 from typing_extensions import Self
+
+from gielladetect import util
 
 here = os.path.dirname(__file__)
 
