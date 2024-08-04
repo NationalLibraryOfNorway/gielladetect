@@ -36,8 +36,6 @@ Original Perl implementation and article available from
 http://odur.let.rug.nl/~vannoord/TextCat/
 """
 
-from typing_extensions import Optional, Self, TextIO, Tuple
-#from typing import Optional, Self, TextIO, Tuple
 import codecs
 import glob
 import os
@@ -45,6 +43,9 @@ import re
 import itertools
 
 from gielladetect import util
+
+from typing import Optional, TextIO, Tuple
+from typing_extensions import Self
 
 here = os.path.dirname(__file__)
 
