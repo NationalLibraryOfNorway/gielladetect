@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "gielladetect"
 description = "Language detection module based on the GiellaLT models, specifically aimed at minority and indigenous languages"
-version = "1.0.2"
+version = "1.0.3"
 readme = "README.md"
 license = {text="GPLv3"}
 classifiers = [
