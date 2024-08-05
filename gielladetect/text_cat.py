@@ -36,13 +36,13 @@ Original Perl implementation and article available from
 http://odur.let.rug.nl/~vannoord/TextCat/
 """
 
-
-from typing import Optional, Self, TextIO, Tuple
 import codecs
 import glob
 import os
 import re
 import itertools
+from typing import Optional, TextIO, Tuple
+from typing_extensions import Self
 
 from gielladetect import util
 
