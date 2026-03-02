@@ -350,7 +350,7 @@ class Classifier:
 
 
 @lru_cache(maxsize=1)
-def _default_classifier():
+def _default_classifier() -> Classifier:
     return Classifier()
 
 
