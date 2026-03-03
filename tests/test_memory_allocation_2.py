@@ -29,9 +29,9 @@ class MemoryAllocation2TestCase(unittest.TestCase):
             b_to_mib(sum(s.size_diff for s in s3.compare_to(s2, key_type="lineno"))),
             20.0,
         )
-        d1 = classifier.classify("Hva gjør du i dag?")  # TODO: langs
+        d1 = classifier.classify("Hva gjør du i dag?")
         self.assertEqual(d1, "nob")
-        d2 = classifier.classify("Kva gjer du i dag?")  # TODO: langs
+        d2 = classifier.classify("Kva gjer du i dag?")
         self.assertEqual(d2, "nno")
         s4 = tracemalloc.take_snapshot()
         self.assertLess(
