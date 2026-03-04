@@ -37,6 +37,7 @@ http://odur.let.rug.nl/~vannoord/TextCat/
 """
 
 import codecs
+from functools import lru_cache
 import glob
 import os
 import re
@@ -348,8 +349,10 @@ class Classifier:
         return self.classify_full(text, langs, verbose)[0][0]
 
 
-_classifier = Classifier()
+@lru_cache(maxsize=1)
+def _default_classifier() -> Classifier:
+    return Classifier()
 
 
 def detect(text: str, langs: Optional[list[str]] = None) -> str:
-    return _classifier.classify(text, langs=langs)
+    return _default_classifier().classify(text, langs=langs)
